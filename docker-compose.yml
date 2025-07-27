@@ -1,0 +1,205 @@
+services:
+  # PostgreSQL Database for MS Cliente Persona
+  postgres-cliente:
+    image: postgres:15-alpine
+    container_name: postgres-cliente-db
+    environment:
+      POSTGRES_DB: ${CLIENT_DB_NAME}
+      POSTGRES_USER: ${CLIENT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${CLIENT_DB_PASSWORD}
+    ports:
+      - "${CLIENT_DB_PORT_EXTERNAL}:5432"
+    volumes:
+      - postgres_cliente_data:/var/lib/postgresql/data
+      - ./ms-cliente-persona/sql/ms_client.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CLIENT_DB_USERNAME} -d ${CLIENT_DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database for MS Cuenta Movimiento
+  postgres-cuenta:
+    image: postgres:15-alpine
+    container_name: postgres-cuenta-db
+    environment:
+      POSTGRES_DB: ${ACCOUNT_DB_NAME}
+      POSTGRES_USER: ${ACCOUNT_DB_USERNAME}
+      POSTGRES_PASSWORD: ${ACCOUNT_DB_PASSWORD}
+    ports:
+      - "${ACCOUNT_DB_PORT_EXTERNAL}:5432"
+    volumes:
+      - postgres_cuenta_data:/var/lib/postgresql/data
+      - ./ms-cuenta-movimiento/sql/ms_account.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ACCOUNT_DB_USERNAME} -d ${ACCOUNT_DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Eureka Server
+  ms-eurekaserver:
+    build:
+      context: ./ms-eurekaserser
+      dockerfile: Dockerfile
+    container_name: ms-eurekaserver
+    environment:
+      SPRING_APPLICATION_NAME: ${EUREKA_APP_NAME}
+      SERVER_PORT: ${EUREKA_PORT}
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      EUREKA_REGISTER_WITH_EUREKA: ${EUREKA_REGISTER_WITH_EUREKA}
+      EUREKA_FETCH_REGISTRY: ${EUREKA_FETCH_REGISTRY}
+      EUREKA_INSTANCE_HOSTNAME: ${EUREKA_INSTANCE_HOSTNAME}
+    ports:
+      - "${EUREKA_PORT}:${EUREKA_PORT}"
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${EUREKA_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    environment:
+      SPRING_APPLICATION_NAME: ${GATEWAY_APP_NAME}
+      SERVER_PORT: ${GATEWAY_PORT}
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      EUREKA_REGISTER_WITH_EUREKA: ${GATEWAY_REGISTER_WITH_EUREKA}
+      EUREKA_FETCH_REGISTRY: ${GATEWAY_FETCH_REGISTRY}
+      EUREKA_PREFER_IP_ADDRESS: ${GATEWAY_PREFER_IP_ADDRESS}
+      EUREKA_INSTANCE_HOSTNAME: ${GATEWAY_INSTANCE_HOSTNAME}
+      GATEWAY_CONNECT_TIMEOUT: ${GATEWAY_CONNECT_TIMEOUT}
+      GATEWAY_RESPONSE_TIMEOUT: ${GATEWAY_RESPONSE_TIMEOUT}
+    ports:
+      - "${GATEWAY_PORT}:${GATEWAY_PORT}"
+    depends_on:
+      ms-eurekaserver:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${GATEWAY_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # MS Rastreador
+  ms-rastreador:
+    build:
+      context: ./ms-rastreador
+      dockerfile: Dockerfile
+    container_name: ms-rastreador
+    environment:
+      SPRING_APPLICATION_NAME: ${RASTREADOR_APP_NAME}
+      SERVER_PORT: ${RASTREADOR_PORT}
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      EUREKA_REGISTER_WITH_EUREKA: ${RASTREADOR_REGISTER_WITH_EUREKA}
+      EUREKA_FETCH_REGISTRY: ${RASTREADOR_FETCH_REGISTRY}
+      EUREKA_PREFER_IP_ADDRESS: ${RASTREADOR_PREFER_IP_ADDRESS}
+      EUREKA_INSTANCE_HOSTNAME: ${RASTREADOR_INSTANCE_HOSTNAME}
+      LOGGING_LEVEL_EUREKA: ${RASTREADOR_LOGGING_LEVEL_EUREKA}
+      LOGGING_LEVEL_SPRING_CLOUD: ${RASTREADOR_LOGGING_LEVEL_SPRING_CLOUD}
+    ports:
+      - "${RASTREADOR_PORT}:${RASTREADOR_PORT}"
+    depends_on:
+      ms-eurekaserver:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${RASTREADOR_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # MS Cliente Persona
+  ms-cliente-persona:
+    build:
+      context: ./ms-cliente-persona
+      dockerfile: Dockerfile
+    container_name: ms-cliente-persona
+    environment:
+      SPRING_APPLICATION_NAME: ${CLIENT_APP_NAME}
+      SERVER_PORT: ${CLIENT_PORT}
+      API_PREFIX: ${CLIENT_API_PREFIX}
+      DB_HOST: ${CLIENT_DB_HOST}
+      DB_PORT: ${CLIENT_DB_PORT}
+      DB_NAME: ${CLIENT_DB_NAME}
+      DB_USERNAME: ${CLIENT_DB_USERNAME}
+      DB_PASSWORD: ${CLIENT_DB_PASSWORD}
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      EUREKA_INSTANCE_HOSTNAME: ${CLIENT_INSTANCE_HOSTNAME}
+    ports:
+      - "${CLIENT_PORT}:${CLIENT_PORT}"
+    depends_on:
+      postgres-cliente:
+        condition: service_healthy
+      ms-eurekaserver:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${CLIENT_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # MS Cuenta Movimiento
+  ms-cuenta-movimiento:
+    build:
+      context: ./ms-cuenta-movimiento
+      dockerfile: Dockerfile
+    container_name: ms-cuenta-movimiento
+    environment:
+      SPRING_APPLICATION_NAME: ${ACCOUNT_APP_NAME}
+      SERVER_PORT: ${ACCOUNT_PORT}
+      API_PREFIX: ${ACCOUNT_API_PREFIX}
+      DB_HOST: ${ACCOUNT_DB_HOST}
+      DB_PORT: ${ACCOUNT_DB_PORT}
+      DB_NAME: ${ACCOUNT_DB_NAME}
+      DB_USERNAME: ${ACCOUNT_DB_USERNAME}
+      DB_PASSWORD: ${ACCOUNT_DB_PASSWORD}
+      EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
+      EUREKA_INSTANCE_HOSTNAME: ${ACCOUNT_INSTANCE_HOSTNAME}
+      MICROSERVICE_CLIENTS_URL: ${MICROSERVICE_CLIENTS_URL}
+    ports:
+      - "${ACCOUNT_PORT}:${ACCOUNT_PORT}"
+    depends_on:
+      postgres-cuenta:
+        condition: service_healthy
+      ms-eurekaserver:
+        condition: service_healthy
+      ms-cliente-persona:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:${ACCOUNT_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_cliente_data:
+    driver: local
+  postgres_cuenta_data:
+    driver: local
+
+networks:
+  microservices-network:
+    driver: bridge

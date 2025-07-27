@@ -1,0 +1,43 @@
+# Archivos y directorios a ignorar durante la construcción Docker
+
+# Target directory
+target/
+!target/*.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Maven wrapper
+!.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node modules (si los hay)
+node_modules/
+
+# Environment files (sensibles)
+.env.local
+.env.production
+.env.test
+
+# Documentation
+README.md
+docs/

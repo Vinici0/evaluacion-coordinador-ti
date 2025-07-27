@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  # app:
+  #   image: testcodevinicio2/ms-cuenta:latest
+  #   container_name: msvc_account_app
+  #   ports:
+  #     - "${SERVER_PORT}:${SERVER_PORT}"
+  #   environment:
+  #     - SPRING_APPLICATION_NAME=${SPRING_APPLICATION_NAME}
+  #     - SERVER_PORT=${SERVER_PORT}
+  #     - API_PREFIX=${API_PREFIX}
+  #     - DB_HOST=postgres
+  #     - DB_PORT=5432
+  #     - DB_NAME=${DB_NAME}
+  #     - DB_USERNAME=${DB_USERNAME}
+  #     - DB_PASSWORD=${DB_PASSWORD}
+  #     # Cambiar la URL para que apunte al servicio de proyecto 2 (ajusta según tu red)
+  #     - MICROSERVICE_CLIENTS_URL=http://192.168.1.22:9292
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - mynetwork
+
+  postgres:
+    image: postgres:16
+    container_name: cuenta_movimientos_db
+    restart: always
+    ports:
+      - "${DB_PORT}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+networks:
+  mynetwork:
+    external: true
+
+volumes:
+  postgres_data:
