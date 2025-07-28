@@ -64,3 +64,9 @@ docker-compose up -d api-gateway
 
 
 Cada microservicio implementa **functional endpoints** para mayor rendimiento y control granular sobre el flujo reactivo de datos.
+
+## 👨‍💻 Autor
+
+**Vinicio Borja**  
+📧 Desarrollador de Software  
+🔗 LinkedIn: [https://www.linkedin.com/in/vinicio-borja-tapia/](https://www.linkedin.com/in/vinicio-borja-tapia/)
