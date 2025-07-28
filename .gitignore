@@ -170,3 +170,5 @@ META-INF/MANIFEST.MF
 # API Documentation generated
 docs/api-docs/
 swagger-ui/
+
+.env
