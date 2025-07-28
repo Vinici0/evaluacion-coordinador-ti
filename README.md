@@ -12,20 +12,6 @@ Sistema de microservicios para gestión bancaria implementado con **programació
 - **ms-cuenta-movimiento** (8082) - Manejo de cuentas y transacciones con PostgreSQL + Kafka Producer
 - **ms-rastreador** (8084) - Trazabilidad de operaciones
 
-### Infraestructura
-- **Kafka** (9092) - Message Broker para eventos entre microservicios
-- **Zookeeper** (2181) - Coordinación de Kafka
-- **PostgreSQL** - Bases de datos separadas por microservicio
-
-### Características Técnicas
-- **Programación Reactiva**: Spring WebFlux con Mono/Flux
-- **Event-Driven Architecture**: Kafka para comunicación asíncrona entre servicios
-- **Functional Endpoints**: RouterFunction para manejo de rutas
-- **Base de Datos**: PostgreSQL separada por microservicio  
-- **Service Discovery**: Eureka Server
-- **Gateway Reactivo**: Spring Cloud Gateway con filtros reactivos
-- **Arquitectura Hexagonal**: Separación clara entre dominio, aplicación e infraestructura
-
 ## 🚀 Ejecución con Docker
 
 ### Levantar todo el sistema
