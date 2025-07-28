@@ -1,4 +1,67 @@
 services:
+  # Apache Kafka y Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9092:9092"
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Kafka UI para administración y monitoreo
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      DYNAMIC_CONFIG_ENABLED: true
+    ports:
+      - "${KAFKA_UI_PORT}:8080"
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # PostgreSQL Database for MS Cliente Persona
   postgres-cliente:
     image: postgres:15-alpine
@@ -142,12 +205,17 @@ services:
       DB_PASSWORD: ${CLIENT_DB_PASSWORD}
       EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
       EUREKA_INSTANCE_HOSTNAME: ${CLIENT_INSTANCE_HOSTNAME}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_TOPIC_MOVEMENTS: ${KAFKA_TOPIC_MOVEMENTS}
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID_CLIENT}
     ports:
       - "${CLIENT_PORT}:${CLIENT_PORT}"
     depends_on:
       postgres-cliente:
         condition: service_healthy
       ms-eurekaserver:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - microservices-network
@@ -176,6 +244,9 @@ services:
       EUREKA_SERVER_URL: ${EUREKA_SERVER_URL}
       EUREKA_INSTANCE_HOSTNAME: ${ACCOUNT_INSTANCE_HOSTNAME}
       MICROSERVICE_CLIENTS_URL: ${MICROSERVICE_CLIENTS_URL}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_TOPIC_MOVEMENTS: ${KAFKA_TOPIC_MOVEMENTS}
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID_ACCOUNT}
     ports:
       - "${ACCOUNT_PORT}:${ACCOUNT_PORT}"
     depends_on:
@@ -184,6 +255,8 @@ services:
       ms-eurekaserver:
         condition: service_healthy
       ms-cliente-persona:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - microservices-network

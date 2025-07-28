@@ -25,6 +25,7 @@ import org.borja.springcloud.msvc.account.models.Movement;
 import org.borja.springcloud.msvc.account.repositories.AccountRepository;
 import org.borja.springcloud.msvc.account.repositories.MovementRepository;
 import org.borja.springcloud.msvc.account.services.client.WebClientService;
+import org.borja.springcloud.msvc.account.services.kafka.KafkaProducerService;
 import org.borja.springcloud.msvc.account.validadors.MovementValidator;
 
 @Service
@@ -36,6 +37,7 @@ public class MovementService implements IMovementService {
     private final AccountRepository accountRepository;
     private final MovementValidator movementValidator;
     private final WebClientService webClientService;
+    private final KafkaProducerService kafkaProducerService;
 
     @Override
     public Mono<MovementResponseDto> addMovement(MovementRequestDto movRequest) {
@@ -69,7 +71,18 @@ public class MovementService implements IMovementService {
         return accountRepository.save(account)
                 .then(movementRepository.save(movement))
                 .flatMap(this::mapToResponseDto)
-                .doOnSuccess(mov -> log.info("Movement successfully added. New balance: {}", newBalance))
+                .doOnSuccess(mov -> {
+                    log.info("Movement successfully added. New balance: {}", newBalance);
+                    // Enviar mensaje a Kafka
+                    String kafkaMessage = String.format(
+                        "Nuevo movimiento agregado - Cuenta: %s, Tipo: %s, Monto: %.2f, Nuevo Saldo: %.2f", 
+                        account.getAccountNumber(), 
+                        movRequest.getMovementType(), 
+                        amount, 
+                        newBalance
+                    );
+                    kafkaProducerService.sendMovementMessage(account.getAccountNumber(), kafkaMessage);
+                })
                 .doOnError(error -> log.error("Error adding movement: {}", error.getMessage()));
     }
 

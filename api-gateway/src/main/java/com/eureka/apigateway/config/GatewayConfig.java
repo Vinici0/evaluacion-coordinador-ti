@@ -11,15 +11,15 @@ public class GatewayConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // Ruta para ms-personas (clientes)
-                .route("ms-personas", r -> r
+                // Ruta para ms-cliente-persona (clientes)
+                .route("ms-cliente-persona", r -> r
                         .path("/api/clientes/**")
                         .filters(f -> f
                                 .stripPrefix(1) // Remueve /api
                                 .addRequestHeader("X-Gateway", "api-gateway")
                                 .addResponseHeader("X-Response-Gateway", "api-gateway")
                                 .retry(3)) // Reintentos en caso de falla
-                        .uri("lb://ms-personas"))
+                        .uri("lb://ms-cliente-persona"))
                 
                 // Ruta para ms-cuenta-movimiento (cuentas)
                 .route("ms-cuenta-movimiento-cuentas", r -> r
