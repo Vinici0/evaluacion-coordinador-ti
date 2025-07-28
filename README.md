@@ -1,6 +1,6 @@
 # Microservicios Bancarios - Spring Boot Reactive
 
-Sistema de microservicios para gestión bancaria implementado con **programación reactiva** y **arquitectura hexagonal**, utilizando Spring WebFlux y functional endpoints.
+Sistema de microservicios para gestión bancaria implementado con **programación reactiva**, utilizando Spring WebFlux y functional endpoints.
 
 ## 🏗️ Arquitectura
 <img width="1179" height="586" alt="image" src="https://github.com/user-attachments/assets/93fc25cf-ee00-45ad-ac39-d77486522e70" />
