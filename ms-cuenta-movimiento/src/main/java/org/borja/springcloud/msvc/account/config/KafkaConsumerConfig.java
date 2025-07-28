@@ -1,4 +1,4 @@
-package org.borja.msclientepersona.config;
+package org.borja.springcloud.msvc.account.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -9,7 +9,6 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,33 +16,29 @@ import java.util.Map;
 @Configuration
 @EnableKafka
 public class KafkaConsumerConfig {
-    
-    @Value("${spring.kafka.bootstrap-servers}")
+
+    @Value("${spring.kafka.bootstrap-servers:kafka:9092}")
     private String bootstrapServers;
-    
-    @Value("${spring.kafka.consumer.group-id}")
-    private String groupId;
-    
+
     @Bean
-    public ConsumerFactory<String, Object> consumerFactory() {
+    public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "account-service-group");
         configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         
         // Configuraciones adicionales
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         configProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
-        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        configProps.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 1000);
         
         return new DefaultKafkaConsumerFactory<>(configProps);
     }
-    
+
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, Object> factory = 
-            new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
         return factory;
     }

@@ -25,9 +25,8 @@ import org.borja.springcloud.msvc.account.models.Movement;
 import org.borja.springcloud.msvc.account.repositories.AccountRepository;
 import org.borja.springcloud.msvc.account.repositories.MovementRepository;
 import org.borja.springcloud.msvc.account.services.client.WebClientService;
+import org.borja.springcloud.msvc.account.services.kafka.KafkaProducerService;
 import org.borja.springcloud.msvc.account.validadors.MovementValidator;
-import org.borja.mscuentamovimiento.dto.MovementEventDto;
-import org.borja.mscuentamovimiento.services.MovementEventService;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +37,7 @@ public class MovementService implements IMovementService {
     private final AccountRepository accountRepository;
     private final MovementValidator movementValidator;
     private final WebClientService webClientService;
-    private final MovementEventService movementEventService;
+    private final KafkaProducerService kafkaProducerService;
 
     @Override
     public Mono<MovementResponseDto> addMovement(MovementRequestDto movRequest) {
@@ -71,12 +70,19 @@ public class MovementService implements IMovementService {
 
         return accountRepository.save(account)
                 .then(movementRepository.save(movement))
-                .flatMap(savedMovement -> {
-                    // Publicar evento al tópico de Kafka
-                    publishMovementEvent(savedMovement, account);
-                    return mapToResponseDto(savedMovement);
+                .flatMap(this::mapToResponseDto)
+                .doOnSuccess(mov -> {
+                    log.info("Movement successfully added. New balance: {}", newBalance);
+                    // Enviar mensaje a Kafka
+                    String kafkaMessage = String.format(
+                        "Nuevo movimiento agregado - Cuenta: %s, Tipo: %s, Monto: %.2f, Nuevo Saldo: %.2f", 
+                        account.getAccountNumber(), 
+                        movRequest.getMovementType(), 
+                        amount, 
+                        newBalance
+                    );
+                    kafkaProducerService.sendMovementMessage(account.getAccountNumber(), kafkaMessage);
                 })
-                .doOnSuccess(mov -> log.info("Movement successfully added. New balance: {}", newBalance))
                 .doOnError(error -> log.error("Error adding movement: {}", error.getMessage()));
     }
 
@@ -188,47 +194,5 @@ public class MovementService implements IMovementService {
                         .balance(movement.getBalance())
                         .accountNumber(account.getAccountNumber())
                         .build());
-    }
-
-    private void publishMovementEvent(Movement movement, Account account) {
-        // Obtener información del cliente de forma reactiva y asíncrona
-        webClientService.findClientById((long) account.getClientId())
-                .subscribe(
-                        client -> {
-                            MovementEventDto eventDto = new MovementEventDto(
-                                    movement.getId(),
-                                    movement.getAccountId(),
-                                    account.getClientId(),
-                                    client.getName(),
-                                    client.getAddress(), // Usando address como email (simulated)
-                                    movement.getMovementType(),
-                                    movement.getAmount(),
-                                    movement.getBalance() + movement.getAmount(), // Balance después del movimiento
-                                    movement.getDate(),
-                                    account.getAccountNumber()
-                            );
-                            
-                            log.info("🚀 Publicando evento de movimiento para cliente: {}", client.getName());
-                            movementEventService.publishMovementEvent(eventDto);
-                        },
-                        error -> {
-                            log.error("❌ Error al obtener información del cliente para evento: {}", error.getMessage());
-                            // Crear evento con información limitada si falla la obtención del cliente
-                            MovementEventDto eventDto = new MovementEventDto();
-                            eventDto.setMovementId(movement.getId());
-                            eventDto.setAccountId(movement.getAccountId());
-                            eventDto.setClientId(account.getClientId()); // Ya es Integer
-                            eventDto.setClientName("Cliente ID: " + account.getClientId());
-                            eventDto.setClientEmail("email@unknown.com");
-                            eventDto.setMovementType(movement.getMovementType());
-                            eventDto.setAmount(movement.getAmount());
-                            eventDto.setBalance(movement.getBalance() + movement.getAmount());
-                            eventDto.setDate(movement.getDate());
-                            eventDto.setAccountNumber(account.getAccountNumber());
-                            
-                            log.info("🚀 Publicando evento de movimiento con datos limitados");
-                            movementEventService.publishMovementEvent(eventDto);
-                        }
-                );
     }
 }
